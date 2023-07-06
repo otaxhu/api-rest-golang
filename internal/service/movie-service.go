@@ -15,6 +15,7 @@ import (
 type MovieService interface {
 	SaveMovie(ctx context.Context, movie dto.SaveMovie) error
 	GetMovies(ctx context.Context, page int) ([]dto.GetMovies, error)
+	GetMovieById(ctx context.Context, id int) (dto.GetMovies, error)
 }
 
 type movieServiceImpl struct {
@@ -69,7 +70,7 @@ func (service *movieServiceImpl) SaveMovie(ctx context.Context, movieDto dto.Sav
 
 func (service *movieServiceImpl) GetMovies(ctx context.Context, page int) ([]dto.GetMovies, error) {
 	if page <= 0 {
-		return nil, ErrInvalidPageParam
+		return nil, ErrInvalidParams
 	}
 	page--
 	const limit = 5
@@ -92,4 +93,19 @@ func (service *movieServiceImpl) GetMovies(ctx context.Context, page int) ([]dto
 		})
 	}
 	return dtoMovies, nil
+}
+
+func (service *movieServiceImpl) GetMovieById(ctx context.Context, id int) (dto.GetMovies, error) {
+	movie, err := service.repo.GetMovieById(ctx, id)
+	if err == repository.ErrNoRows {
+		return dto.GetMovies{}, ErrNotFound
+	} else if err != nil {
+		return dto.GetMovies{}, ErrInternalServer
+	}
+	return dto.GetMovies{
+		Id:       movie.Id,
+		Title:    movie.Title,
+		Date:     movie.Date,
+		CoverUrl: movie.CoverUrl,
+	}, nil
 }

@@ -8,6 +8,7 @@ func (ga *ginApp) bindRoutes() {
 
 	movieRoutes.POST("", ga.movieHandler.PostMovie)
 	movieRoutes.GET("", ga.movieHandler.GetMovies)
+	movieRoutes.GET("/:id", ga.movieHandler.GetMovieById)
 
 	ga.app.Static("/static", "./static")
 }

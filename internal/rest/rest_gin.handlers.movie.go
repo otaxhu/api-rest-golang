@@ -49,7 +49,7 @@ func (mh *ginMovieHandler) GetMovies(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 
 	movies, err := mh.movieService.GetMovies(c, page)
-	if err == service.ErrInvalidPageParam {
+	if err == service.ErrInvalidParams {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
 	} else if err == service.ErrNotFound {
@@ -60,4 +60,21 @@ func (mh *ginMovieHandler) GetMovies(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, movies)
+}
+
+func (mh *ginMovieHandler) GetMovieById(c *gin.Context) {
+	idParam, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"message": service.ErrNotFound})
+		return
+	}
+	movie, err := mh.movieService.GetMovieById(c, idParam)
+	if err == service.ErrNotFound {
+		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"message": err.Error()})
+		return
+	} else if err == service.ErrInternalServer {
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, movie)
 }
