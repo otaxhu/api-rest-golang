@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"net/http"
 	"path/filepath"
-	"strings"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/otaxhu/api-rest-golang/internal/models"
+	"github.com/otaxhu/api-rest-golang/internal/models/dto"
 	"github.com/otaxhu/api-rest-golang/internal/service"
 )
 
@@ -24,41 +24,40 @@ func newMovieHandler(movieService service.MovieService) *ginMovieHandler {
 }
 
 func (mh *ginMovieHandler) PostMovie(c *gin.Context) {
-	title, exists := c.GetPostForm("title")
-	if !exists || strings.TrimSpace(title) == "" {
-		c.AbortWithError(http.StatusBadRequest, fmt.Errorf("the title field is empty"))
+	date, _ := time.Parse("2006-01-02", c.PostForm("date"))
+	cover, _ := c.FormFile("cover")
+	if cover != nil {
+		cover.Filename = uuid.NewString() + filepath.Ext(cover.Filename)
+		cover.Header.Set("cover_url", fmt.Sprintf("http://%s/static/covers/%s", c.Request.Host, cover.Filename))
 	}
-	date, err := time.Parse("2006-01-02", c.PostForm("date"))
-	if err != nil {
-		c.AbortWithError(http.StatusBadRequest, err)
+	dtoSaveMovie := dto.SaveMovie{
+		Title: c.PostForm("title"),
+		Date:  date,
+		Cover: cover,
+	}
+	if err := mh.movieService.SaveMovie(c, dtoSaveMovie); err == service.ErrInvalidMovieObject {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": err.Error()})
+		return
+	} else if err == service.ErrInternalServer {
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 		return
 	}
-	cover, err := c.FormFile("cover")
-	if err != nil {
-		c.AbortWithError(http.StatusBadRequest, err)
+	c.Status(http.StatusCreated)
+}
+
+func (mh *ginMovieHandler) GetMovies(c *gin.Context) {
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+
+	movies, err := mh.movieService.GetMovies(c, page)
+	if err == service.ErrInvalidPageParam {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": err.Error()})
+		return
+	} else if err == service.ErrNotFound {
+		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"message": err.Error()})
+		return
+	} else if err == service.ErrInternalServer {
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 		return
 	}
-	newFilename := uuid.NewString() + filepath.Ext(cover.Filename)
-
-	cover.Filename = newFilename
-
-	coverUrl := fmt.Sprintf("http://%s/static/covers/%s", c.Request.Host, newFilename)
-
-	path, err := filepath.Abs("./static/covers")
-
-	if err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
-		return
-	}
-	if err := c.SaveUploadedFile(cover, fmt.Sprintf("%s/%s", path, newFilename)); err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
-		return
-	}
-	if err := mh.movieService.SaveMovie(c, models.Movie{
-		Title:    title,
-		Date:     date,
-		CoverUrl: coverUrl,
-	}); err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
-	}
+	c.JSON(http.StatusOK, movies)
 }
