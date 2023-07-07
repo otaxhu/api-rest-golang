@@ -78,3 +78,19 @@ func (mh *ginMovieHandler) GetMovieById(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, movie)
 }
+
+func (mh *ginMovieHandler) DeleteMovieById(c *gin.Context) {
+	idParam, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"message": service.ErrNotFound.Error()})
+		return
+	}
+	if err := mh.movieService.DeleteMovieById(c, idParam); err == service.ErrNotFound {
+		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"message": err.Error()})
+		return
+	} else if err == service.ErrDeletingMovie {
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		return
+	}
+	c.Status(http.StatusNoContent)
+}

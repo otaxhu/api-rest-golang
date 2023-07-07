@@ -16,6 +16,7 @@ type MovieService interface {
 	SaveMovie(ctx context.Context, movie dto.SaveMovie) error
 	GetMovies(ctx context.Context, page int) ([]dto.GetMovies, error)
 	GetMovieById(ctx context.Context, id int) (dto.GetMovies, error)
+	DeleteMovieById(ctx context.Context, id int) error
 }
 
 type movieServiceImpl struct {
@@ -108,4 +109,13 @@ func (service *movieServiceImpl) GetMovieById(ctx context.Context, id int) (dto.
 		Date:     movie.Date,
 		CoverUrl: movie.CoverUrl,
 	}, nil
+}
+
+func (service *movieServiceImpl) DeleteMovieById(ctx context.Context, id int) error {
+	if err := service.repo.DeleteMovieById(ctx, id); err == repository.ErrNoRows {
+		return ErrNotFound
+	} else if err != nil {
+		return ErrDeletingMovie
+	}
+	return nil
 }

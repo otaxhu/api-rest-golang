@@ -8,4 +8,5 @@ var (
 	ErrInvalidParams      = fmt.Errorf("invalid params")
 	ErrNotFound           = fmt.Errorf("not found")
 	ErrInternalServer     = fmt.Errorf("internal server error")
+	ErrDeletingMovie      = fmt.Errorf("internal server error during deleting movie")
 )

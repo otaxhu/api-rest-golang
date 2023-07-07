@@ -23,6 +23,7 @@ const (
 	// where you want the id or anything like that
 	qrySelectMovie = "SELECT id, title, date, cover_url FROM movies "
 	qryInsertMovie = "INSERT INTO movies (title, date, cover_url) VALUES (?, ?, ?)"
+	qryDeleteMovie = "DELETE FROM movies WHERE id = ?"
 )
 
 func (repo *mysqlMovieRepo) InsertMovie(ctx context.Context, movie models.Movie) error {
@@ -66,4 +67,19 @@ func (repo *mysqlMovieRepo) GetMovieById(ctx context.Context, id int) (models.Mo
 	}
 	movie.Date, err = time.Parse("2006-01-02", movieDate)
 	return movie, err
+}
+
+func (repo mysqlMovieRepo) DeleteMovieById(ctx context.Context, id int) error {
+	result, err := repo.db.ExecContext(ctx, qryDeleteMovie, id)
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return ErrNoRows
+	}
+	return nil
 }
