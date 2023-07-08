@@ -2,9 +2,8 @@ package service
 
 import (
 	"context"
-	"io"
-	"os"
-	"path/filepath"
+	"strings"
+	"time"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/otaxhu/api-rest-golang/internal/models"
@@ -14,20 +13,23 @@ import (
 
 type MovieService interface {
 	SaveMovie(ctx context.Context, movie dto.SaveMovie) error
-	GetMovies(ctx context.Context, page int) ([]dto.GetMovies, error)
-	GetMovieById(ctx context.Context, id int) (dto.GetMovies, error)
-	DeleteMovieById(ctx context.Context, id int) error
+	GetMovies(ctx context.Context, page int) ([]dto.GetMovie, error)
+	GetMovieById(ctx context.Context, id int) (dto.GetMovie, error)
+	DeleteMovie(ctx context.Context, id int) error
+	UpdateMovie(ctx context.Context, movie dto.UpdateMovie) error
 }
 
 type movieServiceImpl struct {
-	validator *validator.Validate
-	repo      repository.MovieRepository
+	validator  *validator.Validate
+	movieRepo  repository.MovieRepository
+	coversRepo repository.CoversRepository
 }
 
-func NewMovieService(movieRepo repository.MovieRepository) MovieService {
+func NewMovieService(movieRepo repository.MovieRepository, coversRepo repository.CoversRepository) MovieService {
 	return &movieServiceImpl{
-		repo:      movieRepo,
-		validator: validator.New(),
+		movieRepo:  movieRepo,
+		validator:  validator.New(),
+		coversRepo: coversRepo,
 	}
 }
 
@@ -42,34 +44,18 @@ func (service *movieServiceImpl) SaveMovie(ctx context.Context, movieDto dto.Sav
 		CoverUrl: movieDto.Cover.Header.Get("cover_url"),
 	}
 
-	if err := service.repo.InsertMovie(ctx, movie); err != nil {
-		return ErrSavingMovie
-	}
-
-	file, err := movieDto.Cover.Open()
+	tx, err := service.movieRepo.InsertMovie(ctx, movie)
 	if err != nil {
 		return ErrInternalServer
 	}
-	defer file.Close()
-
-	path, err := filepath.Abs("./static/covers")
-	if err != nil {
+	if err := service.coversRepo.SaveMovieCover(movieDto.Cover); err != nil {
+		tx.Rollback()
 		return ErrInternalServer
 	}
-
-	out, err := os.Create(filepath.Join(path, movieDto.Cover.Filename))
-	if err != nil {
-		return ErrInternalServer
-	}
-	defer out.Close()
-
-	if _, err = io.Copy(out, file); err != nil {
-		return ErrInternalServer
-	}
-	return nil
+	return tx.Commit()
 }
 
-func (service *movieServiceImpl) GetMovies(ctx context.Context, page int) ([]dto.GetMovies, error) {
+func (service *movieServiceImpl) GetMovies(ctx context.Context, page int) ([]dto.GetMovie, error) {
 	if page <= 0 {
 		return nil, ErrInvalidParams
 	}
@@ -77,16 +63,16 @@ func (service *movieServiceImpl) GetMovies(ctx context.Context, page int) ([]dto
 	const limit = 5
 	offset := limit * page
 
-	movies, err := service.repo.GetMovies(ctx, limit, uint(offset))
+	movies, err := service.movieRepo.GetMovies(ctx, limit, uint(offset))
 	if err == repository.ErrNoRows {
-		return nil, ErrNotFound
+		return nil, ErrNoEntries
 	} else if err != nil {
 		return nil, ErrInternalServer
 	}
 
-	dtoMovies := []dto.GetMovies{}
+	dtoMovies := []dto.GetMovie{}
 	for _, movie := range movies {
-		dtoMovies = append(dtoMovies, dto.GetMovies{
+		dtoMovies = append(dtoMovies, dto.GetMovie{
 			Id:       movie.Id,
 			Title:    movie.Title,
 			Date:     movie.Date,
@@ -96,14 +82,14 @@ func (service *movieServiceImpl) GetMovies(ctx context.Context, page int) ([]dto
 	return dtoMovies, nil
 }
 
-func (service *movieServiceImpl) GetMovieById(ctx context.Context, id int) (dto.GetMovies, error) {
-	movie, err := service.repo.GetMovieById(ctx, id)
+func (service *movieServiceImpl) GetMovieById(ctx context.Context, id int) (dto.GetMovie, error) {
+	movie, err := service.movieRepo.GetMovieById(ctx, id)
 	if err == repository.ErrNoRows {
-		return dto.GetMovies{}, ErrNotFound
+		return dto.GetMovie{}, ErrNotFound
 	} else if err != nil {
-		return dto.GetMovies{}, ErrInternalServer
+		return dto.GetMovie{}, ErrInternalServer
 	}
-	return dto.GetMovies{
+	return dto.GetMovie{
 		Id:       movie.Id,
 		Title:    movie.Title,
 		Date:     movie.Date,
@@ -111,11 +97,58 @@ func (service *movieServiceImpl) GetMovieById(ctx context.Context, id int) (dto.
 	}, nil
 }
 
-func (service *movieServiceImpl) DeleteMovieById(ctx context.Context, id int) error {
-	if err := service.repo.DeleteMovieById(ctx, id); err == repository.ErrNoRows {
+func (service *movieServiceImpl) DeleteMovie(ctx context.Context, id int) error {
+	dbMovie, err := service.GetMovieById(ctx, id)
+	if err != nil {
+		return err
+	}
+	tx, err := service.movieRepo.DeleteMovie(ctx, id)
+	if err == repository.ErrNoRows {
 		return ErrNotFound
 	} else if err != nil {
-		return ErrDeletingMovie
+		return ErrInternalServer
 	}
-	return nil
+	if err := service.coversRepo.DeleteCover(dbMovie.CoverUrl); err != nil {
+		tx.Rollback()
+		return ErrInternalServer
+	}
+	return tx.Commit()
+}
+
+func (service *movieServiceImpl) UpdateMovie(ctx context.Context, movieDto dto.UpdateMovie) error {
+	dbMovie, err := service.GetMovieById(ctx, movieDto.Id)
+	if err != nil {
+		return err
+	}
+	movie := models.Movie{
+		Id: dbMovie.Id,
+	}
+	if strings.TrimSpace(movieDto.Title) == "" {
+		movie.Title = dbMovie.Title
+	}
+	var dateZeroValue time.Time
+	if movieDto.Date == dateZeroValue {
+		movie.Date = dbMovie.Date
+	}
+	if movieDto.Cover != nil {
+		movie.CoverUrl = movieDto.Cover.Header.Get("cover_url")
+	}
+	tx, err := service.movieRepo.UpdateMovie(ctx, movie)
+	if err == repository.ErrNoRows {
+		return ErrNotFound
+	} else if err != nil {
+		return ErrInternalServer
+	}
+	if movieDto.Cover == nil {
+		return tx.Commit()
+	}
+	if err := service.coversRepo.DeleteCover(dbMovie.CoverUrl); err != nil {
+		tx.Rollback()
+		return ErrInternalServer
+	}
+	if err := service.coversRepo.SaveMovieCover(movieDto.Cover); err != nil {
+		tx.Rollback()
+		return ErrInternalServer
+	}
+	return tx.Commit()
 }
