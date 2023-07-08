@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/otaxhu/api-rest-golang/src/database"
-	"github.com/otaxhu/api-rest-golang/src/internal/models"
-	"github.com/otaxhu/api-rest-golang/src/settings"
+	"github.com/otaxhu/api-rest-golang/database"
+	"github.com/otaxhu/api-rest-golang/internal/models"
+	"github.com/otaxhu/api-rest-golang/settings"
 )
 
 type MovieRepository interface {

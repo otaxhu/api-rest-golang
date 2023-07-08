@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"time"
 
-	"github.com/otaxhu/api-rest-golang/src/internal/models"
+	"github.com/otaxhu/api-rest-golang/internal/models"
 )
 
 type mysqlMovieRepo struct {
