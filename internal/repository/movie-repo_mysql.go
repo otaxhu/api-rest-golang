@@ -14,7 +14,7 @@ type mysqlMovieRepo struct {
 
 func newMysqlMovieRepo(db *sql.DB) MovieRepository {
 	return &mysqlMovieRepo{
-		db,
+		db: db,
 	}
 }
 
@@ -24,11 +24,20 @@ const (
 	qrySelectMovie = "SELECT id, title, date, cover_url FROM movies "
 	qryInsertMovie = "INSERT INTO movies (title, date, cover_url) VALUES (?, ?, ?)"
 	qryDeleteMovie = "DELETE FROM movies WHERE id = ?"
+	qryUpdateMovie = "UPDATE movies SET title = ?, date = ?, cover_url = ? WHERE id = ?"
 )
 
-func (repo *mysqlMovieRepo) InsertMovie(ctx context.Context, movie models.Movie) error {
-	_, err := repo.db.ExecContext(ctx, qryInsertMovie, movie.Title, movie.Date, movie.CoverUrl)
-	return err
+func (repo *mysqlMovieRepo) InsertMovie(ctx context.Context, movie models.Movie) (tx, error) {
+	tx, err := repo.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	_, err = tx.ExecContext(ctx, qryInsertMovie, movie.Title, movie.Date, movie.CoverUrl)
+	if err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+	return tx, nil
 }
 
 func (repo *mysqlMovieRepo) GetMovies(ctx context.Context, limit, offset uint) ([]models.Movie, error) {
@@ -69,17 +78,32 @@ func (repo *mysqlMovieRepo) GetMovieById(ctx context.Context, id int) (models.Mo
 	return movie, err
 }
 
-func (repo mysqlMovieRepo) DeleteMovieById(ctx context.Context, id int) error {
-	result, err := repo.db.ExecContext(ctx, qryDeleteMovie, id)
+func (repo *mysqlMovieRepo) DeleteMovie(ctx context.Context, id int) (tx, error) {
+	if _, err := repo.GetMovieById(ctx, id); err != nil {
+		return nil, err
+	}
+	tx, err := repo.db.BeginTx(ctx, nil)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	rowsAffected, err := result.RowsAffected()
+	if _, err := tx.ExecContext(ctx, qryDeleteMovie, id); err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+	return tx, nil
+}
+
+func (repo *mysqlMovieRepo) UpdateMovie(ctx context.Context, movie models.Movie) (tx, error) {
+	if _, err := repo.GetMovieById(ctx, movie.Id); err != nil {
+		return nil, err
+	}
+	tx, err := repo.db.BeginTx(ctx, nil)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	if rowsAffected == 0 {
-		return ErrNoRows
+	if _, err := tx.ExecContext(ctx, qryUpdateMovie, movie.Title, movie.Date, movie.CoverUrl, movie.Id); err != nil {
+		tx.Rollback()
+		return nil, err
 	}
-	return nil
+	return tx, nil
 }
