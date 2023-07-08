@@ -4,16 +4,22 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/otaxhu/api-rest-golang/database"
-	"github.com/otaxhu/api-rest-golang/internal/models"
-	"github.com/otaxhu/api-rest-golang/settings"
+	"github.com/otaxhu/api-rest-golang/src/database"
+	"github.com/otaxhu/api-rest-golang/src/internal/models"
+	"github.com/otaxhu/api-rest-golang/src/settings"
 )
 
 type MovieRepository interface {
-	InsertMovie(ctx context.Context, movie models.Movie) error
+	InsertMovie(ctx context.Context, movie models.Movie) (tx, error)
 	GetMovies(ctx context.Context, limit, offset uint) ([]models.Movie, error)
 	GetMovieById(ctx context.Context, id int) (models.Movie, error)
-	DeleteMovieById(ctx context.Context, id int) error
+	DeleteMovie(ctx context.Context, id int) (tx, error)
+	UpdateMovie(ctx context.Context, movie models.Movie) (tx, error)
+}
+
+type tx interface {
+	Commit() error
+	Rollback() error
 }
 
 func NewMovieRepository(dbSettings *settings.Database) (MovieRepository, error) {
