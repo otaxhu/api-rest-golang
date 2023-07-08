@@ -9,7 +9,8 @@ func (ga *ginApp) bindRoutes() {
 	movieRoutes.POST("", ga.movieHandler.PostMovie)
 	movieRoutes.GET("", ga.movieHandler.GetMovies)
 	movieRoutes.GET("/:id", ga.movieHandler.GetMovieById)
-	movieRoutes.DELETE("/:id", ga.movieHandler.DeleteMovieById)
+	movieRoutes.DELETE("/:id", ga.movieHandler.DeleteMovie)
+	movieRoutes.PUT("/:id", ga.movieHandler.PutMovie)
 
 	ga.app.Static("/static", "./static")
 }

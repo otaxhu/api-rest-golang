@@ -52,8 +52,8 @@ func (mh *ginMovieHandler) GetMovies(c *gin.Context) {
 	if err == service.ErrInvalidParams {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
-	} else if err == service.ErrNotFound {
-		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"message": err.Error()})
+	} else if err == service.ErrNoEntries {
+		c.JSON(http.StatusOK, gin.H{"message": err.Error()})
 		return
 	} else if err == service.ErrInternalServer {
 		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
@@ -79,16 +79,44 @@ func (mh *ginMovieHandler) GetMovieById(c *gin.Context) {
 	c.JSON(http.StatusOK, movie)
 }
 
-func (mh *ginMovieHandler) DeleteMovieById(c *gin.Context) {
+func (mh *ginMovieHandler) DeleteMovie(c *gin.Context) {
 	idParam, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"message": service.ErrNotFound.Error()})
 		return
 	}
-	if err := mh.movieService.DeleteMovieById(c, idParam); err == service.ErrNotFound {
+	if err := mh.movieService.DeleteMovie(c, idParam); err == service.ErrNotFound {
 		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"message": err.Error()})
 		return
-	} else if err == service.ErrDeletingMovie {
+	} else if err == service.ErrInternalServer {
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+
+func (mh *ginMovieHandler) PutMovie(c *gin.Context) {
+	idParam, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"message": service.ErrNotFound.Error()})
+		return
+	}
+	date, _ := time.Parse("2006-01-02", c.PostForm("date"))
+	cover, _ := c.FormFile("cover")
+	if cover != nil {
+		cover.Filename = uuid.NewString() + filepath.Ext(cover.Filename)
+		cover.Header.Set("cover_url", fmt.Sprintf("http://%s/static/covers/%s", c.Request.Host, cover.Filename))
+	}
+	movie := dto.UpdateMovie{
+		Id:    idParam,
+		Title: c.PostForm("title"),
+		Date:  date,
+		Cover: cover,
+	}
+	if err := mh.movieService.UpdateMovie(c, movie); err == service.ErrNotFound {
+		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"message": err.Error()})
+		return
+	} else if err == service.ErrInternalServer {
 		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 		return
 	}
