@@ -120,18 +120,25 @@ func (service *movieServiceImpl) UpdateMovie(ctx context.Context, movieDto dto.U
 	if err != nil {
 		return err
 	}
-	movie := models.Movie{
-		Id: dbMovie.Id,
+	coverUrl := ""
+	if movieDto.Cover != nil {
+		coverUrl = movieDto.Cover.Header.Get("cover_url")
 	}
-	if strings.TrimSpace(movieDto.Title) == "" {
+	movie := models.Movie{
+		Id:       movieDto.Id,
+		Title:    movieDto.Title,
+		Date:     movieDto.Date,
+		CoverUrl: coverUrl,
+	}
+	if strings.TrimSpace(movie.Title) == "" {
 		movie.Title = dbMovie.Title
 	}
 	var dateZeroValue time.Time
-	if movieDto.Date == dateZeroValue {
+	if movie.Date == dateZeroValue {
 		movie.Date = dbMovie.Date
 	}
-	if movieDto.Cover != nil {
-		movie.CoverUrl = movieDto.Cover.Header.Get("cover_url")
+	if movie.CoverUrl == "" {
+		movie.CoverUrl = dbMovie.CoverUrl
 	}
 	tx, err := service.movieRepo.UpdateMovie(ctx, movie)
 	if err == repository.ErrNoRows {
