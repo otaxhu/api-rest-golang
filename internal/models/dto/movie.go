@@ -14,9 +14,16 @@ type SaveMovie struct {
 	Cover *multipart.FileHeader `validate:"required"`
 }
 
-type GetMovies struct {
+type GetMovie struct {
 	Id       int       `json:"id"`
 	Title    string    `json:"title"`
 	Date     time.Time `json:"date"`
 	CoverUrl string    `json:"cover_url"`
+}
+
+type UpdateMovie struct {
+	Id    int
+	Title string
+	Date  time.Time
+	Cover *multipart.FileHeader
 }
