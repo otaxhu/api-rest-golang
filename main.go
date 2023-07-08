@@ -22,7 +22,8 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	movieService := service.NewMovieService(movieRepo)
+	coversRepo := repository.NewCoversRepository()
+	movieService := service.NewMovieService(movieRepo, coversRepo)
 	app, err := rest.New(serverSettings, movieService)
 	if err != nil {
 		log.Fatal(err)
