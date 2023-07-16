@@ -1,4 +1,4 @@
-package repository
+package covers_repo
 
 import (
 	"io"

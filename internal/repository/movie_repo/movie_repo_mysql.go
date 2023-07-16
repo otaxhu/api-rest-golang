@@ -1,4 +1,4 @@
-package repository
+package movie_repo
 
 import (
 	"context"
@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/otaxhu/api-rest-golang/internal/models"
+	repo_errs "github.com/otaxhu/api-rest-golang/internal/repository/errors"
 )
 
 type mysqlMovieRepo struct {
@@ -59,7 +60,7 @@ func (repo *mysqlMovieRepo) GetMovies(ctx context.Context, limit, offset uint) (
 		movies = append(movies, movie)
 	}
 	if len(movies) == 0 {
-		return nil, ErrNoRows
+		return nil, repo_errs.ErrNoRows
 	}
 	return movies, nil
 }
@@ -70,7 +71,7 @@ func (repo *mysqlMovieRepo) GetMovieById(ctx context.Context, id int) (models.Mo
 	var err error
 	if err := repo.db.QueryRowContext(ctx, qrySelectMovie+"WHERE id = ?", id).
 		Scan(&movie.Id, &movie.Title, &movieDate, &movie.CoverUrl); err == sql.ErrNoRows {
-		return movie, ErrNoRows
+		return movie, repo_errs.ErrNoRows
 	} else if err != nil {
 		return movie, err
 	}
@@ -79,9 +80,6 @@ func (repo *mysqlMovieRepo) GetMovieById(ctx context.Context, id int) (models.Mo
 }
 
 func (repo *mysqlMovieRepo) DeleteMovie(ctx context.Context, id int) (tx, error) {
-	if _, err := repo.GetMovieById(ctx, id); err != nil {
-		return nil, err
-	}
 	tx, err := repo.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, err
@@ -94,9 +92,6 @@ func (repo *mysqlMovieRepo) DeleteMovie(ctx context.Context, id int) (tx, error)
 }
 
 func (repo *mysqlMovieRepo) UpdateMovie(ctx context.Context, movie models.Movie) (tx, error) {
-	if _, err := repo.GetMovieById(ctx, movie.Id); err != nil {
-		return nil, err
-	}
 	tx, err := repo.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, err
