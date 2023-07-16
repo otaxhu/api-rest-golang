@@ -2,7 +2,7 @@ package rest
 
 // Funcion que inicializa las rutas con handlers definidos en el struct ginMovieHandler.
 // Es responsabilidad del programador inicializar las rutas con sus respectivos handlers.
-func (ga *ginApp) bindRoutes() {
+func (ga *ginApp) bindRoutes() error {
 
 	movieRoutes := ga.app.Group("/movies")
 
@@ -13,4 +13,5 @@ func (ga *ginApp) bindRoutes() {
 	movieRoutes.PUT("/:id", ga.movieHandler.PutMovie)
 
 	ga.app.Static("/static", "./static")
+	return nil
 }

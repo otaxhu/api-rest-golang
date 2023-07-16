@@ -14,14 +14,16 @@ type ginApp struct {
 	app            *gin.Engine
 }
 
-func newGinApp(serverSettings *settings.Server, movieService service.MovieService) *ginApp {
+func newGinApp(serverSettings *settings.Server, movieService service.MovieService) (*ginApp, error) {
 	app := &ginApp{
 		serverSettings: serverSettings,
 		movieHandler:   newMovieHandler(movieService),
 		app:            gin.Default(),
 	}
-	app.bindRoutes()
-	return app
+	if err := app.bindRoutes(); err != nil {
+		return nil, err
+	}
+	return app, nil
 }
 
 func (ga *ginApp) Start() error {
