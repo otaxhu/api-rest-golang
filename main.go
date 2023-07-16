@@ -3,7 +3,8 @@ package main
 import (
 	"log"
 
-	"github.com/otaxhu/api-rest-golang/internal/repository"
+	"github.com/otaxhu/api-rest-golang/internal/repository/covers_repo"
+	"github.com/otaxhu/api-rest-golang/internal/repository/movie_repo"
 	"github.com/otaxhu/api-rest-golang/internal/rest"
 	"github.com/otaxhu/api-rest-golang/internal/service"
 	"github.com/otaxhu/api-rest-golang/settings"
@@ -18,11 +19,11 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	movieRepo, err := repository.NewMovieRepository(dbSettings)
+	movieRepo, err := movie_repo.NewMovieRepository(dbSettings)
 	if err != nil {
 		log.Fatal(err)
 	}
-	coversRepo := repository.NewCoversRepository()
+	coversRepo := covers_repo.NewCoversRepository()
 	movieService := service.NewMovieService(movieRepo, coversRepo)
 	app, err := rest.New(serverSettings, movieService)
 	if err != nil {

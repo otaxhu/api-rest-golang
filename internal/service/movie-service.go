@@ -8,7 +8,9 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/otaxhu/api-rest-golang/internal/models"
 	"github.com/otaxhu/api-rest-golang/internal/models/dto"
-	"github.com/otaxhu/api-rest-golang/internal/repository"
+	"github.com/otaxhu/api-rest-golang/internal/repository/covers_repo"
+	repo_errors "github.com/otaxhu/api-rest-golang/internal/repository/errors"
+	"github.com/otaxhu/api-rest-golang/internal/repository/movie_repo"
 )
 
 type MovieService interface {
@@ -21,11 +23,11 @@ type MovieService interface {
 
 type movieServiceImpl struct {
 	validator  *validator.Validate
-	movieRepo  repository.MovieRepository
-	coversRepo repository.CoversRepository
+	movieRepo  movie_repo.MovieRepository
+	coversRepo covers_repo.CoversRepository
 }
 
-func NewMovieService(movieRepo repository.MovieRepository, coversRepo repository.CoversRepository) MovieService {
+func NewMovieService(movieRepo movie_repo.MovieRepository, coversRepo covers_repo.CoversRepository) MovieService {
 	return &movieServiceImpl{
 		movieRepo:  movieRepo,
 		validator:  validator.New(),
@@ -64,7 +66,7 @@ func (service *movieServiceImpl) GetMovies(ctx context.Context, page int) ([]dto
 	offset := limit * page
 
 	movies, err := service.movieRepo.GetMovies(ctx, limit, uint(offset))
-	if err == repository.ErrNoRows {
+	if err == repo_errors.ErrNoRows {
 		return nil, ErrNoEntries
 	} else if err != nil {
 		return nil, ErrInternalServer
@@ -84,7 +86,7 @@ func (service *movieServiceImpl) GetMovies(ctx context.Context, page int) ([]dto
 
 func (service *movieServiceImpl) GetMovieById(ctx context.Context, id int) (dto.GetMovie, error) {
 	movie, err := service.movieRepo.GetMovieById(ctx, id)
-	if err == repository.ErrNoRows {
+	if err == repo_errors.ErrNoRows {
 		return dto.GetMovie{}, ErrNotFound
 	} else if err != nil {
 		return dto.GetMovie{}, ErrInternalServer
@@ -103,7 +105,7 @@ func (service *movieServiceImpl) DeleteMovie(ctx context.Context, id int) error 
 		return err
 	}
 	tx, err := service.movieRepo.DeleteMovie(ctx, id)
-	if err == repository.ErrNoRows {
+	if err == repo_errors.ErrNoRows {
 		return ErrNotFound
 	} else if err != nil {
 		return ErrInternalServer
@@ -141,7 +143,7 @@ func (service *movieServiceImpl) UpdateMovie(ctx context.Context, movieDto dto.U
 		movie.CoverUrl = dbMovie.CoverUrl
 	}
 	tx, err := service.movieRepo.UpdateMovie(ctx, movie)
-	if err == repository.ErrNoRows {
+	if err == repo_errors.ErrNoRows {
 		return ErrNotFound
 	} else if err != nil {
 		return ErrInternalServer
